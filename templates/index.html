@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="http://code.jquery.com/jquery-1.11.1.min.js"></script>
+    <link rel="stylesheet" href="http://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <script src="http://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"
+            integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS"
+            crossorigin="anonymous"></script>
+    <script type="text/javascript">
+      $(function(){
+        // 手書き文字認識用HTML5お絵描きエリア
+        var canvas = document.getElementById("canvas");
+        var miniCanvas = document.getElementById("miniCanvas");
+        var clearButton = document.getElementById("clearButton");
+        var ctx = canvas.getContext("2d");
+        var img = new Image();
+        var borderWidth = 1;
+        
+        //マウス初期化
+        var mouse = {
+          startX: 0,
+          startY: 0,
+          x: 0,
+          y: 0,
+          color: "black",
+          isDrawing: false,
+          lineWidth: 30
+        };
+        
+        // 画像データを送信し手書き文字のチェックを行う
+        // successには一番近い文字が返ってくる
+
+        
+        function drawCanvas() {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          miniCanvas.getContext('2d').clearRect(0, 0, miniCanvas.width, miniCanvas.height);
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+        
+        function sendCheckNum() {
+          img = new Image();
+          img.onload = () => {
+            var inputs = [];
+            var tempCtx = document.createElement('canvas').getContext('2d');
+            tempCtx.drawImage(img, 0, 0, img.width, img.height, 0, 0, 28, 28);
+            var imageData = tempCtx.getImageData(0, 0, 28, 28);
+            
+            miniCanvas.getContext('2d').putImageData(imageData, 0, 0);
+            var sendingData = miniCanvas.getContext('2d').getImageData(0, 0, 28, 28).data;
+            
+            for (var i = 0; i < 28; i++) {
+              for (var j = 0; j < 28; j++) {
+                var n = 4 * (i * 28 + j);
+                inputs[i * 28 + j] = (sendingData[n + 0] + sendingData[n + 1] + sendingData[n + 2]) / 3;
+//                console.log((sendingData[n + 0] + sendingData[n + 1] + sendingData[n + 2]) / 3);
+              }
+            }
+            
+            if (Math.min(...inputs) === 255) {
+              return;
+            }
+            
+//            var debugString = "<table><tbody>";
+//            for (var i in inputs) {
+//              if (i % 20 == 0) {
+//                debugString = debugString + "<tr>"
+//              }
+//              debugString = debugString + "<th>" + i + ":" + inputs[i] + "&nbsp;&nbsp;</th>";
+//              if (i % 20 == 19) {
+//                debugString = debugString + "</tr>";
+//              }
+//            }
+//            debugString = debugString + "</tbody><table>";
+//            $("#debugIn").empty();
+//            $("#debugIn").html(debugString);
+          
+            $.ajax({
+              url: '/sendCheckNum',
+              method: 'POST',
+              contentType: 'application/json',
+              data: JSON.stringify(inputs),
+              success: (data) => {
+                var array = data.result;
+                var answer = array.indexOf(Math.max.apply(null,array));
+                $("#answer").text(answer);
+                var debugString = "";
+                for (var i in array) {
+                  debugString = debugString + i + ":" + array[i] + "</br>";
+                }
+                $("#debugOut").html(debugString);
+              }
+            });
+          };
+          img.src = canvas.toDataURL();
+          $("#preview").attr('src',canvas.toDataURL());
+        }
+        
+        canvas.addEventListener("mousemove", function(e){
+          var rect = e.target.getBoundingClientRect();
+          mouse.x = e.clientX - rect.left - borderWidth;
+          mouse.y = e.clientY - rect.top - borderWidth;
+          
+          if (mouse.isDrawing){
+            ctx.beginPath();
+            ctx.lineJoin = "bevel";
+            ctx.lineCap = "round";
+            ctx.lineWidth = mouse.lineWidth;
+            ctx.moveTo(mouse.startX, mouse.startY);
+            ctx.lineTo(mouse.x, mouse.y);
+            ctx.strokeStyle = mouse.color;
+            ctx.strokeStyle = mouse.color;
+            ctx.stroke();
+            mouse.startX = mouse.x;
+            mouse.startY = mouse.y;
+            
+          }
+          
+        });
+        
+        canvas.addEventListener("mousedown", function(e){
+          mouse.isDrawing = true;
+          mouse.startX = mouse.x;
+          mouse.startY = mouse.y;
+        });
+        
+        canvas.addEventListener("mouseup", function(e){
+          mouse.isDrawing = false;
+          ctx.closePath();
+          
+          sendCheckNum();
+        });
+        
+        canvas.addEventListener("mouseleave", function() {
+          drawFlag = false;
+          ctx.closePath();
+        });
+
+        window.addEventListener("load", drawCanvas);
+        clearButton.addEventListener("click", drawCanvas);
+      });
+    </script>
+    <style type="text/css">
+      canvas {
+        border: 1px solid #4d4e53;
+        border-radius: 2px;
+      }
+      .ui-grid-b>.ui-block-a,
+      .ui-grid-b>.ui-block-c {
+        width: 10%;
+      }
+      .ui-grid-b>.ui-block-b {
+        width: 80%;
+        text-align:center;
+      }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h3 class="text-muted">MINIST Sample</h3>
+        <span class="description">手書き文字認識テストページ</span>
+    </div>
+    <div class="content">
+        <div class="ui-grid-b">
+            <div class="ui-block-a">
+                <canvas id="miniCanvas" width="28" height="28"></canvas>
+            </div>
+            <div class="ui-block-b">
+                <canvas id="canvas" width="421" height="421"></canvas>
+            </div>
+            <div class="ui-block-c">
+            </div>
+        </div>
+        <div class="infoArea"><button class="button" id="clearButton">クリア</button></div>
+        <div class="answerArea">この文字は　<span id="answer"　style="font-weight:bold;"></span>　です。</div>
+        <div class="debugArea"><span id="debugIn"></span><br><span id="debugOut"></span></div>
+    </div>
+</div>
+</body>
+</html>
