@@ -1,1 +1,1 @@
-web: gunicorn mnistServer:app --log-file - 
+web: gunicorn mnistServer:ministServer --log-file=- 
